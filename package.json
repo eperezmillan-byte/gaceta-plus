@@ -1,0 +1,12 @@
+{
+  "name": "gaceta-plus",
+  "version": "1.0.0",
+  "description": "Gaceta+ — Portal financiero con cotizaciones en vivo y feeds editoriales integrados",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^4.5.0"
+  }
+}
