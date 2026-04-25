@@ -692,6 +692,40 @@ a:hover { color: var(--gold); }
   text-transform: uppercase;
 }
 
+/* ───────── PWA · botón Instalar ───────── */
+.install-btn {
+  display: inline-flex;
+  align-items: center;
+  color: var(--gold) !important;
+  border-color: var(--gold) !important;
+  background: rgba(212, 165, 116, 0.08) !important;
+  animation: installFade 0.4s ease;
+}
+.install-btn:hover {
+  background: rgba(212, 165, 116, 0.16) !important;
+}
+@keyframes installFade {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ───────── PWA · modo standalone (app instalada) ─────────
+   Ajustes finos cuando la app corre fuera del navegador. */
+@media (display-mode: standalone) {
+  /* Respeta el área segura de iOS (notch / barra inferior) */
+  .topbar {
+    padding-top: max(18px, env(safe-area-inset-top));
+    padding-left: max(28px, env(safe-area-inset-left));
+    padding-right: max(28px, env(safe-area-inset-right));
+  }
+  .footer {
+    padding-bottom: max(22px, env(safe-area-inset-bottom));
+  }
+  /* Ya está instalada: no mostramos el botón si por algún motivo
+     se cuela el evento beforeinstallprompt */
+  .install-btn { display: none !important; }
+}
+
 /* ───────── MOBILE ───────── */
 @media (max-width: 720px) {
   .topbar {

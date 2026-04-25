@@ -368,9 +368,68 @@
 
     document.addEventListener('visibilitychange', onVisibilityChange);
 
+    // PWA: registrar service worker e interceptar prompt de instalación
+    setupPWA();
+
     // Carga inicial + intervalo de refresco
     refreshAll();
     startAutoRefresh();
+  }
+
+  // ── PWA · service worker + install prompt ──────────────────
+  let deferredInstallPrompt = null;
+
+  function setupPWA() {
+    // Registramos el service worker (requisito para instalación)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => {
+          console.warn('SW register failed', err);
+        });
+      });
+    }
+
+    // Chrome/Android: capturar el evento de instalación para mostrar UI propia
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      showInstallButton();
+    });
+
+    // Si la app ya fue instalada, escondemos el botón
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      hideInstallButton();
+    });
+  }
+
+  function showInstallButton() {
+    if ($('#installBtn')) return; // ya existe
+    const btn = document.createElement('button');
+    btn.id = 'installBtn';
+    btn.className = 'btn btn-ghost install-btn';
+    btn.type = 'button';
+    btn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: -2px;">
+        <path d="M12 3v12M6 9l6 6 6-6M5 21h14"/>
+      </svg>Instalar`;
+    btn.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        hideInstallButton();
+      }
+      deferredInstallPrompt = null;
+    });
+    // Insertamos antes del Login en la barra de acciones
+    const actions = document.querySelector('.actions');
+    actions.insertBefore(btn, actions.firstChild);
+  }
+
+  function hideInstallButton() {
+    const btn = $('#installBtn');
+    if (btn) btn.remove();
   }
 
   if (document.readyState === 'loading') {
