@@ -62,6 +62,35 @@ gaceta-plus/
 - **Volver al foco después de >10 min:** dispara un refresh inmediato.
 - **Lectura in-app:** los artículos se abren en un modal con tipografía editorial; los videos en iframe embebido.
 
+## 📱 Instalar la app en el celular (PWA)
+
+Una vez deployada, la app es **instalable** como aplicación nativa.
+
+### Android (Chrome)
+
+1. Abrí la URL de Netlify en Chrome.
+2. Aparece automáticamente un botón **"Instalar"** dorado en la barra superior, al lado de Login.
+3. Tocalo y confirmá. La app queda en el escritorio del celular como cualquier otra.
+4. *Alternativa:* tocar el menú de Chrome (⋮) → **Instalar app**.
+
+### iPhone / iPad (Safari)
+
+iOS no muestra prompt automático. Hay que hacerlo manualmente:
+
+1. Abrí la URL de Netlify en **Safari** (no funciona en Chrome de iOS).
+2. Tocá el ícono de **Compartir** (cuadrado con flecha hacia arriba) en la barra inferior.
+3. Bajá en el menú y tocá **Agregar a pantalla de inicio**.
+4. Confirmá el nombre ("Gaceta+") y tocá **Agregar**.
+
+Una vez instalada, la app abre **a pantalla completa**, sin barras del navegador, igual que una app nativa. El ícono dorado "G+" queda en el escritorio.
+
+### ¿Qué cambia con la app instalada?
+
+- Carga **instantánea** la próxima vez (el shell — HTML/CSS/JS — queda cacheado por el service worker).
+- Si abrís la app sin internet, te muestra los **últimos datos guardados** en lugar de pantalla vacía.
+- Modo **pantalla completa**, sin chrome del navegador.
+- Respeta el área segura del notch en iPhones modernos.
+
 ## Desarrollo local
 
 ```bash
