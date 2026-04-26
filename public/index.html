@@ -28,28 +28,26 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="app-header">
-    <div class="topbar">
-      <div class="brand" aria-label="Gaceta+">
-        <span class="brand-mark">Gaceta</span><span class="brand-plus">+</span>
-      </div>
-      <div class="actions">
-        <button class="btn btn-ghost" id="loginBtn" type="button">Login</button>
-        <button class="btn btn-primary" id="subscribeBtn" type="button">Suscribirse</button>
+  <header class="topbar">
+    <div class="brand" aria-label="Gaceta+">
+      <span class="brand-mark">Gaceta</span><span class="brand-plus">+</span>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="loginBtn" type="button">Login</button>
+      <button class="btn btn-primary" id="subscribeBtn" type="button">Suscribirse</button>
+    </div>
+  </header>
+
+  <section class="ticker-wrap" aria-label="Cotizaciones de Nueva York">
+    <div class="ticker-label" aria-label="En vivo" title="En vivo">
+      <span class="dot"></span>
+    </div>
+    <div class="ticker">
+      <div class="ticker-track" id="tickerTrack">
+        <div class="ticker-loading">Cargando cotizaciones…</div>
       </div>
     </div>
-
-    <section class="ticker-wrap" aria-label="Cotizaciones de Nueva York">
-      <div class="ticker-label" aria-label="En vivo" title="En vivo">
-        <span class="dot"></span>
-      </div>
-      <div class="ticker">
-        <div class="ticker-track" id="tickerTrack">
-          <div class="ticker-loading">Cargando cotizaciones…</div>
-        </div>
-      </div>
-    </section>
-  </header>
+  </section>
 
   <nav class="tabs" role="tablist">
     <button class="tab active" data-tab="actualidad" role="tab" aria-selected="true">Actualidad</button>
