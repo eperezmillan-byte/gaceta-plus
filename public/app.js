@@ -380,12 +380,25 @@
   let deferredInstallPrompt = null;
 
   function setupPWA() {
-    // Registramos el service worker (requisito para instalación)
+    // Registramos el service worker (requisito para instalación + background sync)
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(err => {
+      window.addEventListener('load', async () => {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          // Pedir periodic background sync (Android Chrome PWA, principalmente).
+          // En navegadores que no lo soportan, esto se ignora silenciosamente.
+          tryRegisterPeriodicSync(registration);
+        } catch (err) {
           console.warn('SW register failed', err);
-        });
+        }
+      });
+
+      // El SW nos avisa cuando refresca datos en background — actualizamos la UI.
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'data-refreshed') {
+          // Re-leemos del network (cache ya está fresco, será inmediato).
+          refreshAll();
+        }
       });
     }
 
@@ -401,6 +414,29 @@
       deferredInstallPrompt = null;
       hideInstallButton();
     });
+  }
+
+  async function tryRegisterPeriodicSync(registration) {
+    if (!('periodicSync' in registration)) {
+      // No soportado (iOS Safari, Firefox, etc.). Sin drama.
+      return;
+    }
+    try {
+      const status = await navigator.permissions.query({
+        name: 'periodic-background-sync'
+      });
+      if (status.state !== 'granted') {
+        // El navegador no concedió el permiso (típico si no es PWA instalada
+        // o si el "site engagement score" es bajo).
+        return;
+      }
+      await registration.periodicSync.register('gaceta-refresh', {
+        minInterval: 15 * 60 * 1000  // 15 minutos
+      });
+      console.info('[PWA] Periodic background sync activado · 15 min');
+    } catch (err) {
+      console.info('[PWA] Periodic sync no disponible:', err.message);
+    }
   }
 
   function showInstallButton() {

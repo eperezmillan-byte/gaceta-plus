@@ -7,7 +7,7 @@
    - Para HTML: network-first, fallback al index.html cacheado.
 ============================================================ */
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0';
 const SHELL_CACHE = `gaceta-shell-${VERSION}`;
 const API_CACHE   = `gaceta-api-${VERSION}`;
 
@@ -109,4 +109,50 @@ async function cacheFirst(req, cacheName) {
   } catch (err) {
     return cached || new Response('', { status: 504 });
   }
+}
+
+// ── Periodic Background Sync ──────────────────────────────
+// Cuando el navegador lo permite (Android Chrome PWA instalada),
+// se dispara este evento periódicamente y refrescamos la caché de la API
+// para que al abrir la app los datos ya estén actualizados.
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'gaceta-refresh') {
+    event.waitUntil(refreshAllData());
+  }
+});
+
+// Background Sync clásico — fallback cuando vuelve la red tras estar offline.
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'gaceta-refresh') {
+    event.waitUntil(refreshAllData());
+  }
+});
+
+const ENDPOINTS = [
+  '/api/quotes',
+  '/api/feed?source=actualidad',
+  '/api/feed?source=cnv',
+  '/api/youtube'
+];
+
+async function refreshAllData() {
+  const cache = await caches.open(API_CACHE);
+  await Promise.allSettled(
+    ENDPOINTS.map(async (url) => {
+      try {
+        const fresh = await fetch(url, { cache: 'no-store' });
+        if (fresh && fresh.ok) {
+          await cache.put(url, fresh.clone());
+        }
+      } catch (err) {
+        // En background sync los errores son silenciosos a propósito.
+      }
+    })
+  );
+
+  // Avisar a las pestañas abiertas (si las hay) para que refresquen UI.
+  const clients = await self.clients.matchAll({ type: 'window' });
+  clients.forEach(client => {
+    client.postMessage({ type: 'data-refreshed', at: Date.now() });
+  });
 }
