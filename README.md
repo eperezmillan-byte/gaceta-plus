@@ -90,6 +90,32 @@ Una vez instalada, la app abre **a pantalla completa**, sin barras del navegador
 - Si abrís la app sin internet, te muestra los **últimos datos guardados** en lugar de pantalla vacía.
 - Modo **pantalla completa**, sin chrome del navegador.
 - Respeta el área segura del notch en iPhones modernos.
+- **Actualización en segundo plano** (ver abajo).
+
+## 🔄 Actualización automática en segundo plano
+
+La app intenta refrescar los datos cada ~15 minutos **incluso si no la tenés abierta**, vía la API **Periodic Background Sync**. Pero hay matices importantes según el dispositivo:
+
+| Plataforma | Funciona | Notas |
+|---|---|---|
+| Android Chrome (PWA instalada) | ✅ Sí | Best effort: el sistema decide cuándo ejecutar realmente |
+| Android Edge (PWA instalada) | ✅ Sí | Igual que Chrome |
+| Desktop Chrome/Edge (PWA instalada) | ✅ Sí | Idem |
+| Android Chrome (sin instalar) | ⚠️ Limitado | El navegador suele negar el permiso |
+| **iPhone / iPad (Safari)** | ❌ **No** | Apple no implementa esta API |
+| Firefox | ❌ No | No soportado |
+
+**Cómo funciona en la práctica (donde sí está soportado):**
+
+1. Tenés que **instalar la app** (paso anterior). Sin instalar, el navegador casi siempre niega el permiso.
+2. Usá la app durante varios días para que el navegador acumule "site engagement" — recién ahí concede el permiso de background sync de forma estable.
+3. Cuando se ejecuta, el service worker descarga las cotizaciones y los feeds frescos en background y los guarda en caché.
+4. Si la app está abierta cuando ocurre, además refresca la UI automáticamente.
+5. Si está cerrada, los datos frescos están listos para cuando la abras.
+
+**Limitación importante:** vos pedís "cada 15 min", pero el navegador decide la frecuencia real según uso, batería y conexión. Puede ser cada 15 min, cada hora, o mucho menos seguido si el dispositivo está ahorrando batería. **No hay forma en la web de garantizar un intervalo exacto** — eso es una decisión deliberada de los navegadores para proteger batería y privacidad.
+
+**En iPhone:** la app se actualiza siempre que la abrís (carga instantánea desde caché + fetch en paralelo). No hay forma de ejecutar código mientras la app está cerrada — es una limitación de iOS, no de la app.
 
 ## Desarrollo local
 
