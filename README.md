@@ -92,30 +92,38 @@ Una vez instalada, la app abre **a pantalla completa**, sin barras del navegador
 - Respeta el área segura del notch en iPhones modernos.
 - **Actualización en segundo plano** (ver abajo).
 
-## 🔄 Actualización automática en segundo plano
+## 🔐 Autenticación (Netlify Identity)
 
-La app intenta refrescar los datos cada ~15 minutos **incluso si no la tenés abierta**, vía la API **Periodic Background Sync**. Pero hay matices importantes según el dispositivo:
+La app está protegida con **Netlify Identity**: solo usuarios registrados pueden ver cotizaciones y feeds. Las funciones serverless verifican el JWT antes de responder.
 
-| Plataforma | Funciona | Notas |
-|---|---|---|
-| Android Chrome (PWA instalada) | ✅ Sí | Best effort: el sistema decide cuándo ejecutar realmente |
-| Android Edge (PWA instalada) | ✅ Sí | Igual que Chrome |
-| Desktop Chrome/Edge (PWA instalada) | ✅ Sí | Idem |
-| Android Chrome (sin instalar) | ⚠️ Limitado | El navegador suele negar el permiso |
-| **iPhone / iPad (Safari)** | ❌ **No** | Apple no implementa esta API |
-| Firefox | ❌ No | No soportado |
+### Flujo del usuario
 
-**Cómo funciona en la práctica (donde sí está soportado):**
+1. Al abrir la app, ve la pantalla de login (Iniciar sesión / Crear cuenta).
+2. Si crea cuenta, recibe un email de confirmación (si tenés activado "Confirm email").
+3. Una vez logueado, ve el contenido completo. La sesión persiste — no le pide login en cada visita.
+4. Botón "Cerrar sesión" en el header derecho.
 
-1. Tenés que **instalar la app** (paso anterior). Sin instalar, el navegador casi siempre niega el permiso.
-2. Usá la app durante varios días para que el navegador acumule "site engagement" — recién ahí concede el permiso de background sync de forma estable.
-3. Cuando se ejecuta, el service worker descarga las cotizaciones y los feeds frescos en background y los guarda en caché.
-4. Si la app está abierta cuando ocurre, además refresca la UI automáticamente.
-5. Si está cerrada, los datos frescos están listos para cuando la abras.
+### Configuración en Netlify
 
-**Limitación importante:** vos pedís "cada 15 min", pero el navegador decide la frecuencia real según uso, batería y conexión. Puede ser cada 15 min, cada hora, o mucho menos seguido si el dispositivo está ahorrando batería. **No hay forma en la web de garantizar un intervalo exacto** — eso es una decisión deliberada de los navegadores para proteger batería y privacidad.
+1. Panel del sitio → **Identity** → **Enable Identity**.
+2. **Registration preferences:**
+   - **Open** — cualquiera puede registrarse.
+   - **Invite only** — solo los que invites por email pueden crear cuenta. **Recomendado para uso privado.**
+3. (Opcional) En **External providers** podés activar Google/GitHub para login con un clic.
 
-**En iPhone:** la app se actualiza siempre que la abrís (carga instantánea desde caché + fetch en paralelo). No hay forma de ejecutar código mientras la app está cerrada — es una limitación de iOS, no de la app.
+### Invitar usuarios (modo Invite only)
+
+Panel del sitio → **Identity** → tab **Identity** → botón **Invite users** → poné los emails. Cada uno recibe un mail con un link para crear su contraseña.
+
+### Recuperación de contraseña
+
+El widget la maneja automáticamente. Desde la pantalla de "Iniciar sesión", el usuario tiene un link "Forgot password" que envía un email de reseteo.
+
+### Notas técnicas
+
+- Los endpoints `/api/quotes`, `/api/feed`, `/api/youtube` requieren un header `Authorization: Bearer <jwt>` válido. Si falta o es inválido, devuelven `401 Unauthorized`.
+- Netlify valida la firma del JWT en su edge **antes** de invocar la función (capa de seguridad gratis).
+- El service worker **no actualiza datos en background** porque los endpoints requieren un JWT válido y los tokens expiran. La app se actualiza solo cuando está abierta y el usuario logueado.
 
 ## Desarrollo local
 
