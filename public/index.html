@@ -27,8 +27,12 @@
 
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Netlify Identity widget (login, registro, recuperación) -->
-  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js" defer></script>
+  <!-- Netlify Identity widget. SIN defer/async: necesita cargarse antes
+       que app.js para procesar los tokens de invitación/recovery/confirmation
+       que llegan en el #hash de la URL desde los emails.
+       El widget detecta automáticamente el endpoint /.netlify/identity de
+       este mismo dominio. -->
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 </head>
 <body>
 

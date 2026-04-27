@@ -398,53 +398,71 @@
 
   // ── Netlify Identity · auth gate ──────────────────────────
   function setupAuth() {
+    const id = window.netlifyIdentity;
+
+    if (!id) {
+      // Widget no cargó (probablemente bloqueado por adblocker o sin internet).
+      console.error('Netlify Identity no disponible. Revisá adblockers o conexión.');
+      $('#authGate').innerHTML = `
+        <div class="auth-card">
+          <div class="auth-brand"><span class="brand-mark">Gaceta</span><span class="brand-plus">+</span></div>
+          <p class="auth-tagline" style="color: var(--red);">Error al cargar autenticación</p>
+          <p class="auth-hint">Revisá tu conexión o desactivá bloqueadores de scripts y recargá la página.</p>
+        </div>`;
+      showAuthGate();
+      return;
+    }
+
     // Botones del gate abren el widget
-    $('#authLoginBtn').addEventListener('click', () => {
-      window.netlifyIdentity?.open('login');
-    });
-    $('#authSignupBtn').addEventListener('click', () => {
-      window.netlifyIdentity?.open('signup');
-    });
+    $('#authLoginBtn').addEventListener('click', () => id.open('login'));
+    $('#authSignupBtn').addEventListener('click', () => id.open('signup'));
+    $('#logoutBtn').addEventListener('click', () => id.logout());
 
-    // Botón de logout en el header
-    $('#logoutBtn').addEventListener('click', () => {
-      window.netlifyIdentity?.logout();
+    // Listeners primero (por si el widget ya disparó init antes de que llegáramos aquí)
+    id.on('login', (user) => {
+      id.close();
+      onLoggedIn(user);
     });
 
-    // El widget se carga con `defer`, esperamos a que esté disponible.
-    const startWhenReady = () => {
-      const id = window.netlifyIdentity;
-      if (!id) {
-        setTimeout(startWhenReady, 50);
-        return;
-      }
+    id.on('logout', () => {
+      onLoggedOut();
+    });
 
-      // Init explícito (necesario en el flujo manual)
-      id.on('init', (user) => {
-        if (user) {
-          onLoggedIn(user);
-        } else {
-          showAuthGate();
-        }
-      });
+    id.on('error', (err) => {
+      console.error('Identity error:', err);
+    });
 
-      id.on('login', (user) => {
-        id.close(); // cierra el widget tras login exitoso
+    // Manejar el estado actual:
+    // - Si el widget ya inicializó (caso típico cuando el script carga rápido),
+    //   currentUser() ya devuelve el resultado correcto.
+    // - Si todavía no, escuchamos init.
+    const handleInitialState = (user) => {
+      if (user) {
         onLoggedIn(user);
-      });
-
-      id.on('logout', () => {
-        onLoggedOut();
-      });
-
-      id.on('error', (err) => {
-        console.error('Identity error:', err);
-      });
-
-      id.init();
+      } else {
+        showAuthGate();
+        // Si la URL trae un token de invitación/recovery/confirmation,
+        // el widget abre automáticamente el modal correspondiente.
+        // Acá solo lo dejamos hacer su trabajo.
+        if (location.hash.includes('invite_token') ||
+            location.hash.includes('recovery_token') ||
+            location.hash.includes('confirmation_token')) {
+          // El widget se encarga; nosotros solo nos aseguramos de no estar tapando.
+        }
+      }
     };
 
-    startWhenReady();
+    // Si ya está inicializado, usamos currentUser. Si no, escuchamos init.
+    // (Algunas versiones del widget exponen .currentUser inmediatamente,
+    //  otras requieren esperar al evento 'init'.)
+    id.on('init', handleInitialState);
+
+    // Por las dudas, también chequeamos sincrónicamente: si el widget ya
+    // procesó el init antes de que registráramos el listener, no perdemos el estado.
+    const currentUser = id.currentUser();
+    if (currentUser !== undefined && currentUser !== null) {
+      handleInitialState(currentUser);
+    }
   }
 
   function showAuthGate() {
