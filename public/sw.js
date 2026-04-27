@@ -7,7 +7,7 @@
    - Para HTML: network-first, fallback al index.html cacheado.
 ============================================================ */
 
-const VERSION = 'v1.5.0';
+const VERSION = 'v1.5.1';
 const SHELL_CACHE = `gaceta-shell-${VERSION}`;
 const API_CACHE   = `gaceta-api-${VERSION}`;
 
