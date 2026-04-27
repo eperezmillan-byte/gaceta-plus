@@ -45,6 +45,9 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  /* Espacio reservado para el header fijo. JS mide la altura real
+     y la setea en --header-height; el 100px es solo fallback inicial. */
+  padding-top: var(--header-height, 100px);
   background-image:
     radial-gradient(ellipse at 85% -10%, rgba(212, 165, 116, 0.07), transparent 55%),
     radial-gradient(ellipse at -5% 40%, rgba(212, 165, 116, 0.025), transparent 60%);
@@ -63,19 +66,27 @@ a:hover { color: var(--gold); }
 
 ::selection { background: var(--gold); color: var(--ink); }
 
+/* ───────── APP HEADER (fijo: brand + botones + ticker) ─────────
+   Se usa position: fixed (no sticky) porque sticky tiene bugs
+   conocidos dentro de contenedores flex en iOS Safari.
+   El padding-top del body compensa el espacio que ocupa el header. */
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+
 /* ───────── TOPBAR ───────── */
 .topbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 18px 28px 14px;
   border-bottom: 1px solid var(--line);
-  background: rgba(12, 12, 14, 0.78);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
 }
 
 .brand {
@@ -134,7 +145,6 @@ a:hover { color: var(--gold); }
 .ticker-wrap {
   display: flex;
   align-items: stretch;
-  border-bottom: 1px solid var(--line);
   background:
     linear-gradient(180deg, rgba(245, 241, 232, 0.015), transparent),
     var(--ink-2);
@@ -687,6 +697,115 @@ a:hover { color: var(--gold); }
   text-transform: uppercase;
 }
 
+/* ───────── AUTH GATE (pantalla de login) ───────── */
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(212, 165, 116, 0.10), transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(212, 165, 116, 0.04), transparent 50%),
+    var(--ink);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 22px;
+  animation: gateFadeIn 0.4s ease;
+}
+.auth-gate.show { display: flex; }
+@keyframes gateFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.auth-card {
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 48px 36px 40px;
+  border: 1px solid var(--line-2);
+  background: rgba(20, 20, 23, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 4px;
+  animation: gateCardIn 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes gateCardIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.auth-brand {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 44px;
+  letter-spacing: -0.025em;
+  font-variation-settings: "opsz" 144;
+  margin-bottom: 4px;
+}
+.auth-brand .brand-mark { color: var(--cream); }
+.auth-brand .brand-plus {
+  color: var(--gold);
+  font-weight: 400;
+  font-style: italic;
+  font-variation-settings: "opsz" 144, "SOFT" 50;
+  margin-left: 1px;
+}
+
+.auth-tagline {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cream-fade);
+  margin-bottom: 22px;
+}
+
+.auth-btn {
+  width: 100%;
+  padding: 13px 22px;
+  font-size: 12.5px;
+}
+
+.auth-hint {
+  margin-top: 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  color: var(--cream-fade);
+  font-size: 12px;
+  font-style: italic;
+  font-family: var(--serif);
+  font-variation-settings: "opsz" 16;
+}
+
+.user-email {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--cream-fade);
+  margin-right: 6px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .user-email { display: none; }
+}
+
+/* Cuando hay auth-gate visible, ocultamos el contenido detrás
+   para que no se vea por la transparencia */
+body.auth-locked .app-header,
+body.auth-locked .content,
+body.auth-locked .footer {
+  visibility: hidden;
+}
+
 /* ───────── PWA · botón Instalar ───────── */
 .install-btn {
   display: inline-flex;
@@ -707,8 +826,8 @@ a:hover { color: var(--gold); }
 /* ───────── PWA · modo standalone (app instalada) ─────────
    Ajustes finos cuando la app corre fuera del navegador. */
 @media (display-mode: standalone) {
-  /* Respeta el área segura de iOS (notch / barra inferior) */
-  .topbar {
+  /* Respeta el área segura de iOS (notch) sobre el header completo */
+  .app-header .topbar {
     padding-top: max(18px, env(safe-area-inset-top));
     padding-left: max(28px, env(safe-area-inset-left));
     padding-right: max(28px, env(safe-area-inset-right));
@@ -723,6 +842,9 @@ a:hover { color: var(--gold); }
 
 /* ───────── MOBILE ───────── */
 @media (max-width: 720px) {
+  body {
+    padding-top: var(--header-height, 86px);
+  }
   .topbar {
     padding: 13px 16px 11px;
   }

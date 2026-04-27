@@ -26,28 +26,55 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400,50;9..144,500,40;9..144,600,30;9..144,700,30;9..144,900,20&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="styles.css" />
+
+  <!-- Netlify Identity widget (login, registro, recuperación) -->
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js" defer></script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand" aria-label="Gaceta+">
-      <span class="brand-mark">Gaceta</span><span class="brand-plus">+</span>
-    </div>
-    <div class="actions">
-      <button class="btn btn-ghost" id="loginBtn" type="button">Login</button>
-      <button class="btn btn-primary" id="subscribeBtn" type="button">Suscribirse</button>
-    </div>
-  </header>
 
-  <section class="ticker-wrap" aria-label="Cotizaciones de Nueva York">
-    <div class="ticker-label" aria-label="En vivo" title="En vivo">
-      <span class="dot"></span>
+  <!-- Pantalla de login: tapa todo hasta que el usuario esté autenticado -->
+  <div class="auth-gate" id="authGate" aria-hidden="true">
+    <div class="auth-card">
+      <div class="auth-brand" aria-label="Gaceta+">
+        <span class="brand-mark">Gaceta</span><span class="brand-plus">+</span>
+      </div>
+      <p class="auth-tagline">Acceso a la edición premium</p>
+      <button class="btn btn-primary auth-btn" id="authLoginBtn" type="button">
+        Iniciar sesión
+      </button>
+      <button class="btn btn-ghost auth-btn" id="authSignupBtn" type="button">
+        Crear cuenta
+      </button>
+      <p class="auth-hint">
+        ¿Olvidaste tu contraseña? Iniciá sesión y tocá "Forgot password".
+      </p>
     </div>
-    <div class="ticker">
-      <div class="ticker-track" id="tickerTrack">
-        <div class="ticker-loading">Cargando cotizaciones…</div>
+  </div>
+
+  <header class="app-header">
+    <div class="topbar">
+      <div class="brand" aria-label="Gaceta+">
+        <span class="brand-mark">Gaceta</span><span class="brand-plus">+</span>
+      </div>
+      <div class="actions">
+        <span class="user-email" id="userEmail" aria-live="polite"></span>
+        <button class="btn btn-ghost" id="logoutBtn" type="button" hidden>Cerrar sesión</button>
+        <button class="btn btn-ghost" id="loginBtn" type="button">Login</button>
+        <button class="btn btn-primary" id="subscribeBtn" type="button">Suscribirse</button>
       </div>
     </div>
-  </section>
+
+    <section class="ticker-wrap" aria-label="Cotizaciones de Nueva York">
+      <div class="ticker-label" aria-label="En vivo" title="En vivo">
+        <span class="dot"></span>
+      </div>
+      <div class="ticker">
+        <div class="ticker-track" id="tickerTrack">
+          <div class="ticker-loading">Cargando cotizaciones…</div>
+        </div>
+      </div>
+    </section>
+  </header>
 
   <nav class="tabs" role="tablist">
     <button class="tab active" data-tab="actualidad" role="tab" aria-selected="true">Actualidad</button>

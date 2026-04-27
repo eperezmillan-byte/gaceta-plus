@@ -70,10 +70,25 @@
       .replace(/javascript:/gi, '');
   }
 
+  // ── Auth-aware fetch ──────────────────────────────────────
+  // Adjunta el JWT del usuario logueado para que la función serverless
+  // pueda verificar identidad. Si no hay sesión, devuelve un error explícito.
+  async function authFetch(url, opts = {}) {
+    const user = window.netlifyIdentity?.currentUser();
+    if (!user) {
+      throw new Error('No autenticado');
+    }
+    // jwt() refresca el token automáticamente si está por expirar.
+    const token = await user.jwt();
+    const headers = new Headers(opts.headers || {});
+    headers.set('Authorization', `Bearer ${token}`);
+    return fetch(url, { ...opts, headers });
+  }
+
   // ── Ticker ─────────────────────────────────────────────────
   async function loadQuotes() {
     try {
-      const res = await fetch('/api/quotes', { cache: 'no-store' });
+      const res = await authFetch('/api/quotes', { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       state.data.quotes = data;
@@ -144,7 +159,7 @@
 
     try {
       const url = source === 'yt' ? '/api/youtube' : `/api/feed?source=${source}`;
-      const res = await fetch(url, { cache: 'no-store' });
+      const res = await authFetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       state.data[source] = data;
@@ -321,6 +336,7 @@
   function init() {
     $('#year').textContent = new Date().getFullYear();
 
+    // Botones existentes (Login/Suscribirse a sitios externos)
     $('#subscribeBtn').addEventListener('click', () => {
       window.open(SUBSCRIBE_URL, '_blank', 'noopener,noreferrer');
     });
@@ -368,36 +384,147 @@
 
     document.addEventListener('visibilitychange', onVisibilityChange);
 
+    // Mide el header fijo y lo aplica como padding-top en body.
+    setupHeaderHeight();
+
+    // Auth gate · Netlify Identity
+    setupAuth();
+
     // PWA: registrar service worker e interceptar prompt de instalación
     setupPWA();
 
-    // Carga inicial + intervalo de refresco
-    refreshAll();
-    startAutoRefresh();
+    // No arrancamos refresh ni timer aquí — eso se hace después del login.
+  }
+
+  // ── Netlify Identity · auth gate ──────────────────────────
+  function setupAuth() {
+    // Botones del gate abren el widget
+    $('#authLoginBtn').addEventListener('click', () => {
+      window.netlifyIdentity?.open('login');
+    });
+    $('#authSignupBtn').addEventListener('click', () => {
+      window.netlifyIdentity?.open('signup');
+    });
+
+    // Botón de logout en el header
+    $('#logoutBtn').addEventListener('click', () => {
+      window.netlifyIdentity?.logout();
+    });
+
+    // El widget se carga con `defer`, esperamos a que esté disponible.
+    const startWhenReady = () => {
+      const id = window.netlifyIdentity;
+      if (!id) {
+        setTimeout(startWhenReady, 50);
+        return;
+      }
+
+      // Init explícito (necesario en el flujo manual)
+      id.on('init', (user) => {
+        if (user) {
+          onLoggedIn(user);
+        } else {
+          showAuthGate();
+        }
+      });
+
+      id.on('login', (user) => {
+        id.close(); // cierra el widget tras login exitoso
+        onLoggedIn(user);
+      });
+
+      id.on('logout', () => {
+        onLoggedOut();
+      });
+
+      id.on('error', (err) => {
+        console.error('Identity error:', err);
+      });
+
+      id.init();
+    };
+
+    startWhenReady();
+  }
+
+  function showAuthGate() {
+    $('#authGate').classList.add('show');
+    $('#authGate').setAttribute('aria-hidden', 'false');
+    document.body.classList.add('auth-locked');
+  }
+
+  function hideAuthGate() {
+    $('#authGate').classList.remove('show');
+    $('#authGate').setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('auth-locked');
+  }
+
+  let initializedAfterLogin = false;
+
+  function onLoggedIn(user) {
+    hideAuthGate();
+    // Mostrar email + botón logout
+    $('#userEmail').textContent = user.email || '';
+    $('#logoutBtn').hidden = false;
+
+    // La primera vez que el usuario entra, arrancamos la carga y el timer.
+    // En logins posteriores (mismo session) nada que hacer.
+    if (!initializedAfterLogin) {
+      initializedAfterLogin = true;
+      refreshAll();
+      startAutoRefresh();
+    }
+  }
+
+  function onLoggedOut() {
+    initializedAfterLogin = false;
+    if (state.refreshTimer) clearInterval(state.refreshTimer);
+    state.refreshTimer = null;
+    // Limpiar contenido sensible para que no quede a la vista.
+    state.data = { actualidad: null, cnv: null, yt: null, quotes: null };
+    $('#tickerTrack').innerHTML = '<div class="ticker-loading">Cargando cotizaciones…</div>';
+    ['actualidad', 'cnv', 'yt'].forEach(s => {
+      const c = $(`#feed-${s}`);
+      if (c) c.innerHTML = '';
+    });
+    $('#userEmail').textContent = '';
+    $('#logoutBtn').hidden = true;
+    showAuthGate();
+  }
+
+  // ── Compensación de altura del header fijo ────────────────
+  function setupHeaderHeight() {
+    const header = $('.app-header');
+    if (!header) return;
+    const update = () => {
+      document.documentElement.style.setProperty(
+        '--header-height',
+        header.offsetHeight + 'px'
+      );
+    };
+    update();
+    // Re-medir cuando cambian fuentes, tamaño de ventana o rotación.
+    if (window.ResizeObserver) {
+      new ResizeObserver(update).observe(header);
+    }
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(update);
+    }
   }
 
   // ── PWA · service worker + install prompt ──────────────────
   let deferredInstallPrompt = null;
 
   function setupPWA() {
-    // Registramos el service worker (requisito para instalación + background sync)
+    // Registramos el service worker (requisito para instalación)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
-          const registration = await navigator.serviceWorker.register('/sw.js');
-          // Pedir periodic background sync (Android Chrome PWA, principalmente).
-          // En navegadores que no lo soportan, esto se ignora silenciosamente.
-          tryRegisterPeriodicSync(registration);
+          await navigator.serviceWorker.register('/sw.js');
         } catch (err) {
           console.warn('SW register failed', err);
-        }
-      });
-
-      // El SW nos avisa cuando refresca datos en background — actualizamos la UI.
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data?.type === 'data-refreshed') {
-          // Re-leemos del network (cache ya está fresco, será inmediato).
-          refreshAll();
         }
       });
     }
@@ -414,29 +541,6 @@
       deferredInstallPrompt = null;
       hideInstallButton();
     });
-  }
-
-  async function tryRegisterPeriodicSync(registration) {
-    if (!('periodicSync' in registration)) {
-      // No soportado (iOS Safari, Firefox, etc.). Sin drama.
-      return;
-    }
-    try {
-      const status = await navigator.permissions.query({
-        name: 'periodic-background-sync'
-      });
-      if (status.state !== 'granted') {
-        // El navegador no concedió el permiso (típico si no es PWA instalada
-        // o si el "site engagement score" es bajo).
-        return;
-      }
-      await registration.periodicSync.register('gaceta-refresh', {
-        minInterval: 15 * 60 * 1000  // 15 minutos
-      });
-      console.info('[PWA] Periodic background sync activado · 15 min');
-    } catch (err) {
-      console.info('[PWA] Periodic sync no disponible:', err.message);
-    }
   }
 
   function showInstallButton() {
