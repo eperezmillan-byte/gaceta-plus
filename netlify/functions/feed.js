@@ -9,7 +9,7 @@ const { requireAuth } = require('./_auth');
 const SOURCES = {
   actualidad: 'https://lagacetamercantil.com.ar/category/actualidad/feed/',
   cnv:        'https://lagacetamercantil.com.ar/category/cnv/feed/',
-  yf:         'https://news.yahoo.com/rss/finance'
+  yf:         'https://feeds.finance.yahoo.com/rss/2.0/headline?s=YPF,GGAL,BMA,SUPV,TGS,CRESY,AGRO,IRS,TEO,PAM,AAPL,MSFT,AMZN,TSLA,GOOG,META,NVDA,VIST,MELI,AEM,CDE,SLV,GLD,COPX,GDX,LYG'
 };
 
 const parser = new XMLParser({
