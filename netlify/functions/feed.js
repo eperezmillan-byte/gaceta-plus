@@ -77,12 +77,22 @@ exports.handler = async (event, context) => {
   try {
     const res = await fetch(SOURCES[source], {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; GacetaPlus/1.0; +https://gacetaplus.netlify.app)',
-        'Accept': 'application/rss+xml, application/xml, text/xml'
-      }
+        // UA de navegador real para evitar bloqueos anti-bot.
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*;q=0.8',
+        'Accept-Language': 'es-AR,es;q=0.9,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      },
+      redirect: 'follow'
     });
 
-    if (!res.ok) throw new Error(`Origen respondió ${res.status}`);
+    if (!res.ok) {
+      // Logueamos detalles para poder diagnosticar desde Netlify Functions logs.
+      console.error(`Feed ${source} HTTP ${res.status}: ${res.statusText}`);
+      throw new Error(`Origen respondió ${res.status} ${res.statusText}`);
+    }
 
     const xml = await res.text();
     const parsed = parser.parse(xml);
