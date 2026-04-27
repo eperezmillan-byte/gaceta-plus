@@ -12,14 +12,13 @@
   // ── Constantes ─────────────────────────────────────────────
   const SUBSCRIBE_URL =
     'https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_plan_id=eece22afc13d4b0c9720eadfdf37082f';
-  const LOGIN_URL = 'https://lagacetamercantil.com.ar/login/';
 
   const REFRESH_MS = 10 * 60 * 1000; // 10 minutos
 
   // ── Estado en memoria ──────────────────────────────────────
   const state = {
     activeTab: 'actualidad',
-    data: { actualidad: null, cnv: null, yt: null, quotes: null },
+    data: { actualidad: null, cnv: null, yt: null, yf: null, quotes: null },
     refreshTimer: null
   };
 
@@ -320,7 +319,8 @@
       loadQuotes(),
       loadFeed('actualidad'),
       loadFeed('cnv'),
-      loadFeed('yt')
+      loadFeed('yt'),
+      loadFeed('yf')
     ]);
 
     $('#refreshBtn').classList.remove('spinning');
@@ -359,12 +359,9 @@
   function init() {
     $('#year').textContent = new Date().getFullYear();
 
-    // Botones existentes (Login/Suscribirse a sitios externos)
+    // Botón Suscribirse (sale al checkout de MercadoPago)
     $('#subscribeBtn').addEventListener('click', () => {
       window.open(SUBSCRIBE_URL, '_blank', 'noopener,noreferrer');
-    });
-    $('#loginBtn').addEventListener('click', () => {
-      window.open(LOGIN_URL, '_blank', 'noopener,noreferrer');
     });
 
     $$('.tab').forEach(t => {
@@ -570,9 +567,9 @@
     if (state.refreshTimer) clearInterval(state.refreshTimer);
     state.refreshTimer = null;
     // Limpiar contenido sensible para que no quede a la vista.
-    state.data = { actualidad: null, cnv: null, yt: null, quotes: null };
+    state.data = { actualidad: null, cnv: null, yt: null, yf: null, quotes: null };
     $('#tickerTrack').innerHTML = '<div class="ticker-loading">Cargando cotizaciones…</div>';
-    ['actualidad', 'cnv', 'yt'].forEach(s => {
+    ['actualidad', 'cnv', 'yt', 'yf'].forEach(s => {
       const c = $(`#feed-${s}`);
       if (c) c.innerHTML = '';
     });

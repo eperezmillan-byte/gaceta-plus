@@ -63,7 +63,6 @@
       <div class="actions">
         <span class="user-email" id="userEmail" aria-live="polite"></span>
         <button class="btn btn-ghost" id="logoutBtn" type="button" hidden>Cerrar sesión</button>
-        <button class="btn btn-ghost" id="loginBtn" type="button">Login</button>
         <button class="btn btn-primary" id="subscribeBtn" type="button">Suscribirse</button>
       </div>
     </div>
@@ -84,6 +83,7 @@
     <button class="tab active" data-tab="actualidad" role="tab" aria-selected="true">Actualidad</button>
     <button class="tab" data-tab="cnv" role="tab" aria-selected="false">CNV</button>
     <button class="tab" data-tab="yt" role="tab" aria-selected="false">YT</button>
+    <button class="tab" data-tab="yf" role="tab" aria-selected="false">YF</button>
     <div class="tab-meta">
       <span class="updated" id="lastUpdated">—</span>
       <button class="refresh" id="refreshBtn" type="button" title="Actualizar ahora" aria-label="Actualizar ahora">
@@ -104,6 +104,9 @@
     </section>
     <section class="panel" id="panel-yt" role="tabpanel" aria-labelledby="tab-yt">
       <div class="feed feed-videos" id="feed-yt"></div>
+    </section>
+    <section class="panel" id="panel-yf" role="tabpanel" aria-labelledby="tab-yf">
+      <div class="feed" id="feed-yf"></div>
     </section>
   </main>
 
