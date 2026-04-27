@@ -401,7 +401,6 @@
     const id = window.netlifyIdentity;
 
     if (!id) {
-      // Widget no cargó (probablemente bloqueado por adblocker o sin internet).
       console.error('Netlify Identity no disponible. Revisá adblockers o conexión.');
       $('#authGate').innerHTML = `
         <div class="auth-card">
@@ -418,10 +417,21 @@
     $('#authSignupBtn').addEventListener('click', () => id.open('signup'));
     $('#logoutBtn').addEventListener('click', () => id.logout());
 
-    // Listeners primero (por si el widget ya disparó init antes de que llegáramos aquí)
+    // Verifica que un objeto de usuario sea válido (tiene email, token, etc).
+    // El widget a veces tiene sesiones corruptas que devuelven objetos
+    // parciales — en ese caso forzamos logout para que arranquen limpio.
+    const isValidUser = (u) => {
+      return !!(u && u.email && u.token && u.token.access_token);
+    };
+
     id.on('login', (user) => {
       id.close();
-      onLoggedIn(user);
+      if (isValidUser(user)) {
+        onLoggedIn(user);
+      } else {
+        console.warn('Login devolvió usuario inválido, forzando logout');
+        id.logout();
+      }
     });
 
     id.on('logout', () => {
@@ -432,37 +442,23 @@
       console.error('Identity error:', err);
     });
 
-    // Manejar el estado actual:
-    // - Si el widget ya inicializó (caso típico cuando el script carga rápido),
-    //   currentUser() ya devuelve el resultado correcto.
-    // - Si todavía no, escuchamos init.
-    const handleInitialState = (user) => {
-      if (user) {
+    // En init, validamos el usuario antes de mostrar el contenido.
+    id.on('init', (user) => {
+      if (isValidUser(user)) {
         onLoggedIn(user);
       } else {
-        showAuthGate();
-        // Si la URL trae un token de invitación/recovery/confirmation,
-        // el widget abre automáticamente el modal correspondiente.
-        // Acá solo lo dejamos hacer su trabajo.
-        if (location.hash.includes('invite_token') ||
-            location.hash.includes('recovery_token') ||
-            location.hash.includes('confirmation_token')) {
-          // El widget se encarga; nosotros solo nos aseguramos de no estar tapando.
+        // Usuario null, undefined, o sesión corrupta.
+        // Si hay algo guardado pero está incompleto, lo limpiamos.
+        if (user) {
+          console.warn('Sesión guardada inválida, limpiando');
+          id.logout();
         }
+        showAuthGate();
       }
-    };
+    });
 
-    // Si ya está inicializado, usamos currentUser. Si no, escuchamos init.
-    // (Algunas versiones del widget exponen .currentUser inmediatamente,
-    //  otras requieren esperar al evento 'init'.)
-    id.on('init', handleInitialState);
-
-    // Por las dudas, también chequeamos sincrónicamente: si el widget ya
-    // procesó el init antes de que registráramos el listener, no perdemos el estado.
-    const currentUser = id.currentUser();
-    if (currentUser !== undefined && currentUser !== null) {
-      handleInitialState(currentUser);
-    }
+    // Llamada explícita a init() para asegurar que se dispare el evento.
+    id.init();
   }
 
   function showAuthGate() {
@@ -481,8 +477,8 @@
 
   function onLoggedIn(user) {
     hideAuthGate();
-    // Mostrar email + botón logout
-    $('#userEmail').textContent = user.email || '';
+    // Mostrar email + botón logout (con fallback por si el objeto está incompleto)
+    $('#userEmail').textContent = user?.email || user?.user_metadata?.full_name || 'Usuario';
     $('#logoutBtn').hidden = false;
 
     // La primera vez que el usuario entra, arrancamos la carga y el timer.
