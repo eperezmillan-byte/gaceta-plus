@@ -1,6 +1,9 @@
 // netlify/functions/quotes.js
 // Consulta Yahoo Finance en paralelo para todos los tickers solicitados.
 // Endpoint público v8/finance/chart — no requiere API key.
+// Protegido con Netlify Identity: requiere JWT válido para responder.
+
+const { requireAuth } = require('./_auth');
 
 const SYMBOLS = [
   'YPF', 'PAM', 'TGS', 'GGAL', 'BMA', 'BBAR',
@@ -50,7 +53,10 @@ async function getQuote(symbol) {
   };
 }
 
-exports.handler = async () => {
+exports.handler = async (event, context) => {
+  const auth = requireAuth(context);
+  if (!auth.ok) return auth.response;
+
   const settled = await Promise.allSettled(SYMBOLS.map(getQuote));
 
   const quotes = settled

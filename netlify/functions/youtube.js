@@ -1,8 +1,10 @@
 // netlify/functions/youtube.js
 // Trae el RSS público de la playlist de YouTube (sin API key) y devuelve
 // los últimos 7 videos con metadata + ID para embebido.
+// Protegido con Netlify Identity: requiere JWT válido para responder.
 
 const { XMLParser } = require('fast-xml-parser');
+const { requireAuth } = require('./_auth');
 
 const PLAYLIST_ID = 'PLpUj470-ctJMGIcMRUu-PrBwQOmN5uyiD';
 const FEED_URL = `https://www.youtube.com/feeds/videos.xml?playlist_id=${PLAYLIST_ID}`;
@@ -43,7 +45,10 @@ function normalizeEntry(entry) {
   };
 }
 
-exports.handler = async () => {
+exports.handler = async (event, context) => {
+  const auth = requireAuth(context);
+  if (!auth.ok) return auth.response;
+
   try {
     const res = await fetch(FEED_URL, {
       headers: {

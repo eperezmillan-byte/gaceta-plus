@@ -1,8 +1,10 @@
 // netlify/functions/feed.js
 // Trae el feed RSS de La Gaceta Mercantil (actualidad o cnv), lo parsea
 // y devuelve los últimos 7 ítems en formato JSON listo para consumir.
+// Protegido con Netlify Identity: requiere JWT válido para responder.
 
 const { XMLParser } = require('fast-xml-parser');
+const { requireAuth } = require('./_auth');
 
 const SOURCES = {
   actualidad: 'https://lagacetamercantil.com.ar/category/actualidad/feed/',
@@ -59,7 +61,10 @@ function normalizeItem(item) {
   };
 }
 
-exports.handler = async (event) => {
+exports.handler = async (event, context) => {
+  const auth = requireAuth(context);
+  if (!auth.ok) return auth.response;
+
   const source = event.queryStringParameters?.source;
 
   if (!source || !SOURCES[source]) {
