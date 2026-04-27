@@ -8,7 +8,8 @@ const { requireAuth } = require('./_auth');
 
 const SOURCES = {
   actualidad: 'https://lagacetamercantil.com.ar/category/actualidad/feed/',
-  cnv: 'https://lagacetamercantil.com.ar/category/cnv/feed/'
+  cnv:        'https://lagacetamercantil.com.ar/category/cnv/feed/',
+  yf:         'https://news.yahoo.com/rss/finance'
 };
 
 const parser = new XMLParser({
@@ -70,7 +71,7 @@ exports.handler = async (event, context) => {
   if (!source || !SOURCES[source]) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Parámetro source inválido. Usar: actualidad | cnv' })
+      body: JSON.stringify({ error: 'Parámetro source inválido. Usar: actualidad | cnv | yf' })
     };
   }
 
