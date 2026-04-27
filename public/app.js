@@ -306,6 +306,12 @@
   // ── Refresh orchestration ──────────────────────────────────
   let isRefreshing = false;
   async function refreshAll() {
+    // Guard: nunca refrescar sin sesión activa, evita "No autenticado".
+    const user = window.netlifyIdentity?.currentUser();
+    if (!user) {
+      console.info('[Refresh] sin sesión, salteando');
+      return;
+    }
     if (isRefreshing) return;
     isRefreshing = true;
     $('#refreshBtn').classList.add('spinning');
@@ -331,8 +337,8 @@
   function startAutoRefresh() {
     if (state.refreshTimer) clearInterval(state.refreshTimer);
     state.refreshTimer = setInterval(() => {
-      // Solo refrescamos si la app está visible para no quemar cuota.
-      if (document.visibilityState === 'visible') {
+      // Solo refrescamos si la app está visible Y hay sesión.
+      if (document.visibilityState === 'visible' && window.netlifyIdentity?.currentUser()) {
         refreshAll();
       }
     }, REFRESH_MS);
@@ -341,6 +347,8 @@
   // Si la pestaña vuelve al foco después de >10 min, refrescamos al toque.
   function onVisibilityChange() {
     if (document.visibilityState !== 'visible') return;
+    // Sin sesión, no refrescamos (evita errores "No autenticado").
+    if (!window.netlifyIdentity?.currentUser()) return;
     const last = state.data.quotes?.updated || 0;
     if (Date.now() - last > REFRESH_MS) {
       refreshAll();
@@ -427,24 +435,35 @@
       return;
     }
 
-    // Botones del gate abren el widget
-    $('#authLoginBtn').addEventListener('click', () => id.open('login'));
-    $('#authSignupBtn').addEventListener('click', () => id.open('signup'));
+    // Botones del gate abren el widget (con logging para diagnosticar)
+    $('#authLoginBtn').addEventListener('click', (e) => {
+      console.info('[Auth] Click en Iniciar sesión');
+      try {
+        id.open('login');
+        console.info('[Auth] open(login) llamado sin error');
+      } catch (err) {
+        console.error('[Auth] open(login) falló:', err);
+      }
+    });
+    $('#authSignupBtn').addEventListener('click', (e) => {
+      console.info('[Auth] Click en Crear cuenta');
+      try {
+        id.open('signup');
+        console.info('[Auth] open(signup) llamado sin error');
+      } catch (err) {
+        console.error('[Auth] open(signup) falló:', err);
+      }
+    });
     $('#logoutBtn').addEventListener('click', () => id.logout());
 
-    // Verifica que un objeto de usuario sea utilizable. La validación es
-    // permisiva: alcanza con tener email. El token puede no estar inmediatamente
-    // disponible y se refresca on-demand al llamar user.jwt() en authFetch.
-    const isValidUser = (u) => {
-      return !!(u && u.email);
-    };
+    const isValidUser = (u) => !!(u && u.email);
 
     id.on('login', (user) => {
       id.close();
       if (isValidUser(user)) {
         onLoggedIn(user);
       } else {
-        console.warn('Login devolvió usuario inválido, forzando logout');
+        console.warn('[Auth] Login devolvió usuario inválido, forzando logout');
         id.logout();
       }
     });
@@ -454,18 +473,19 @@
     });
 
     id.on('error', (err) => {
-      console.error('Identity error:', err);
+      console.error('[Auth] Identity error:', err);
     });
 
-    // En init, validamos el usuario antes de mostrar el contenido.
-    id.on('init', (user) => {
+    // Flag para evitar doble procesamiento del init.
+    let initProcessed = false;
+    const handleInit = (user) => {
+      if (initProcessed) return;
+      initProcessed = true;
       console.info('[Auth] init disparado. Usuario:', user?.email || 'ninguno');
       if (isValidUser(user)) {
         console.info('[Auth] Usuario válido, mostrando contenido');
         onLoggedIn(user);
       } else {
-        // Usuario null, undefined, o sesión corrupta.
-        // Si hay algo guardado pero está incompleto, lo limpiamos.
         if (user) {
           console.warn('[Auth] Sesión guardada inválida, limpiando');
           id.logout();
@@ -474,10 +494,16 @@
         }
         showAuthGate();
       }
-    });
+    };
 
-    // Llamada explícita a init() para asegurar que se dispare el evento.
-    id.init();
+    id.on('init', handleInit);
+
+    // El widget puede haber inicializado solo (auto-init) antes de que llegáramos
+    // a registrar el listener. Si ya hay un currentUser conocido, procesamos.
+    const cu = id.currentUser();
+    if (cu !== undefined) {
+      handleInit(cu);
+    }
   }
 
   function showAuthGate() {
@@ -505,17 +531,38 @@
       // En logins posteriores (mismo session) nada que hacer.
       if (!initializedAfterLogin) {
         initializedAfterLogin = true;
-        // Cada uno con su propio catch — un error en una no rompe las otras.
-        refreshAll().catch(err => console.error('refreshAll inicial falló:', err));
-        try {
-          startAutoRefresh();
-        } catch (err) {
-          console.error('startAutoRefresh falló:', err);
-        }
+        // Esperamos a que el JWT esté disponible antes de la primera carga.
+        // Sin esto hay race condition: el evento `login` dispara antes de
+        // que el widget guarde el token, y authFetch falla con "No autenticado".
+        waitForToken(user).then(() => {
+          refreshAll().catch(err => console.error('refreshAll inicial falló:', err));
+          try {
+            startAutoRefresh();
+          } catch (err) {
+            console.error('startAutoRefresh falló:', err);
+          }
+        }).catch(err => {
+          console.error('No se pudo obtener token inicial:', err);
+        });
       }
     } catch (err) {
       console.error('Error en onLoggedIn:', err);
     }
+  }
+
+  // Espera a que el usuario tenga un JWT recuperable (con reintentos cortos).
+  // Necesario para evitar la primera carga antes de que el widget guarde el token.
+  async function waitForToken(user, maxAttempts = 10) {
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const token = await user.jwt();
+        if (token) return token;
+      } catch (err) {
+        // Sigue intentando.
+      }
+      await new Promise(r => setTimeout(r, 150));
+    }
+    throw new Error('Timeout esperando JWT');
   }
 
   function onLoggedOut() {
