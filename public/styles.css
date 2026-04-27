@@ -806,6 +806,16 @@ body.auth-locked .footer {
   visibility: hidden;
 }
 
+/* ───── Forzar al widget de Netlify Identity a estar SIEMPRE encima ─────
+   El widget se inyecta como #netlify-identity-widget con z-index propio,
+   pero nuestro auth-gate está en 200. Lo subimos a 1000 para garantizar
+   que el modal de login/signup quede por encima del gate. */
+#netlify-identity-widget,
+.netlify-identity-menu,
+[id*="netlify-identity"] {
+  z-index: 1000 !important;
+}
+
 /* ───────── PWA · botón Instalar ───────── */
 .install-btn {
   display: inline-flex;
