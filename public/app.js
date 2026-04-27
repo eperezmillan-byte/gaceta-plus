@@ -72,16 +72,29 @@
 
   // ── Auth-aware fetch ──────────────────────────────────────
   // Adjunta el JWT del usuario logueado para que la función serverless
-  // pueda verificar identidad. Si no hay sesión, devuelve un error explícito.
+  // pueda verificar identidad. Si no hay sesión o el token no se puede
+  // refrescar, registramos el problema en consola y dejamos que el fetch
+  // proceda — la función serverless devolverá 401 y la UI lo manejará.
   async function authFetch(url, opts = {}) {
-    const user = window.netlifyIdentity?.currentUser();
+    const id = window.netlifyIdentity;
+    const user = id?.currentUser();
     if (!user) {
       throw new Error('No autenticado');
     }
-    // jwt() refresca el token automáticamente si está por expirar.
-    const token = await user.jwt();
     const headers = new Headers(opts.headers || {});
-    headers.set('Authorization', `Bearer ${token}`);
+    try {
+      // jwt() refresca el token automáticamente si está por expirar.
+      const token = await user.jwt();
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+    } catch (err) {
+      // Si falla el refresh (token expirado y refresh_token inválido),
+      // forzamos logout para que el usuario reautentique.
+      console.warn('Token refresh falló, forzando logout:', err);
+      id.logout();
+      throw new Error('Sesión expirada');
+    }
     return fetch(url, { ...opts, headers });
   }
 
@@ -168,7 +181,9 @@
       else renderArticles(data.articles || [], source);
     } catch (err) {
       console.error(`feed ${source} error`, err);
-      if (isFirstLoad) {
+      // Mostramos el error siempre que no haya contenido bueno —
+      // antes solo se mostraba la primera vez, lo que ocultaba el problema.
+      if (!state.data[source]?.articles?.length) {
         container.innerHTML = `<div class="error">No se pudo cargar el feed (${escapeHtml(err.message)})</div>`;
       }
     }
@@ -417,11 +432,11 @@
     $('#authSignupBtn').addEventListener('click', () => id.open('signup'));
     $('#logoutBtn').addEventListener('click', () => id.logout());
 
-    // Verifica que un objeto de usuario sea válido (tiene email, token, etc).
-    // El widget a veces tiene sesiones corruptas que devuelven objetos
-    // parciales — en ese caso forzamos logout para que arranquen limpio.
+    // Verifica que un objeto de usuario sea utilizable. La validación es
+    // permisiva: alcanza con tener email. El token puede no estar inmediatamente
+    // disponible y se refresca on-demand al llamar user.jwt() en authFetch.
     const isValidUser = (u) => {
-      return !!(u && u.email && u.token && u.token.access_token);
+      return !!(u && u.email);
     };
 
     id.on('login', (user) => {
@@ -444,14 +459,18 @@
 
     // En init, validamos el usuario antes de mostrar el contenido.
     id.on('init', (user) => {
+      console.info('[Auth] init disparado. Usuario:', user?.email || 'ninguno');
       if (isValidUser(user)) {
+        console.info('[Auth] Usuario válido, mostrando contenido');
         onLoggedIn(user);
       } else {
         // Usuario null, undefined, o sesión corrupta.
         // Si hay algo guardado pero está incompleto, lo limpiamos.
         if (user) {
-          console.warn('Sesión guardada inválida, limpiando');
+          console.warn('[Auth] Sesión guardada inválida, limpiando');
           id.logout();
+        } else {
+          console.info('[Auth] Sin sesión, mostrando login');
         }
         showAuthGate();
       }
@@ -476,17 +495,26 @@
   let initializedAfterLogin = false;
 
   function onLoggedIn(user) {
-    hideAuthGate();
-    // Mostrar email + botón logout (con fallback por si el objeto está incompleto)
-    $('#userEmail').textContent = user?.email || user?.user_metadata?.full_name || 'Usuario';
-    $('#logoutBtn').hidden = false;
+    try {
+      hideAuthGate();
+      // Mostrar email + botón logout (con fallback por si el objeto está incompleto)
+      $('#userEmail').textContent = user?.email || user?.user_metadata?.full_name || 'Usuario';
+      $('#logoutBtn').hidden = false;
 
-    // La primera vez que el usuario entra, arrancamos la carga y el timer.
-    // En logins posteriores (mismo session) nada que hacer.
-    if (!initializedAfterLogin) {
-      initializedAfterLogin = true;
-      refreshAll();
-      startAutoRefresh();
+      // La primera vez que el usuario entra, arrancamos la carga y el timer.
+      // En logins posteriores (mismo session) nada que hacer.
+      if (!initializedAfterLogin) {
+        initializedAfterLogin = true;
+        // Cada uno con su propio catch — un error en una no rompe las otras.
+        refreshAll().catch(err => console.error('refreshAll inicial falló:', err));
+        try {
+          startAutoRefresh();
+        } catch (err) {
+          console.error('startAutoRefresh falló:', err);
+        }
+      }
+    } catch (err) {
+      console.error('Error en onLoggedIn:', err);
     }
   }
 
