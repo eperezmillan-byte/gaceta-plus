@@ -104,7 +104,9 @@ exports.handler = async (event, context) => {
     const rawItems = channel.item || [];
     const itemsArray = Array.isArray(rawItems) ? rawItems : [rawItems];
 
-    const articles = itemsArray.slice(0, 7).map(normalizeItem);
+    // Actualidad y CNV: 20 artículos. Otros (yf): 7 (default).
+    const limit = (source === 'actualidad' || source === 'cnv') ? 20 : 7;
+    const articles = itemsArray.slice(0, limit).map(normalizeItem);
 
     return {
       statusCode: 200,
