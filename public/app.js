@@ -69,6 +69,64 @@
       .replace(/javascript:/gi, '');
   }
 
+  // ── Tracking de artículos leídos (localStorage) ──────────────
+  // Guardamos las URLs de artículos abiertos por feed.
+  // Se acotan a los 200 más recientes para no crecer indefinidamente.
+  const READ_KEY = 'gaceta:read';
+  const READ_LIMIT = 200;
+
+  function loadReadSet() {
+    try {
+      const raw = localStorage.getItem(READ_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function saveReadSet(map) {
+    try {
+      localStorage.setItem(READ_KEY, JSON.stringify(map));
+    } catch (err) {
+      console.warn('No se pudo guardar leídos:', err);
+    }
+  }
+
+  function markAsRead(source, link) {
+    if (!link) return;
+    const map = loadReadSet();
+    if (!map[source]) map[source] = [];
+    if (map[source].includes(link)) return;
+    map[source].push(link);
+    // Trim para no crecer infinito.
+    if (map[source].length > READ_LIMIT) {
+      map[source] = map[source].slice(-READ_LIMIT);
+    }
+    saveReadSet(map);
+  }
+
+  function countUnread(source, articles) {
+    if (!articles?.length) return 0;
+    const map = loadReadSet();
+    const readSet = new Set(map[source] || []);
+    return articles.filter(a => a.link && !readSet.has(a.link)).length;
+  }
+
+  function updateUnreadBadge(source) {
+    const badge = $(`#count-${source}`);
+    if (!badge) return; // YT y YF no tienen badge
+    const articles = state.data[source]?.articles;
+    const n = countUnread(source, articles);
+    if (n > 0) {
+      badge.textContent = n;
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+  }
+
   // ── Auth-aware fetch ──────────────────────────────────────
   // Adjunta el JWT del usuario logueado para que la función serverless
   // pueda verificar identidad. Si no hay sesión o el token no se puede
@@ -192,16 +250,22 @@
     const container = $(`#feed-${source}`);
     if (!articles.length) {
       container.innerHTML = '<div class="empty">Sin novedades por el momento.</div>';
+      updateUnreadBadge(source);
       return;
     }
-    container.innerHTML = articles.map((a, i) => `
-      <article class="article-card" data-source="${source}" data-index="${i}" tabindex="0" role="button">
+    const readSet = new Set((loadReadSet()[source]) || []);
+    container.innerHTML = articles.map((a, i) => {
+      const isRead = a.link && readSet.has(a.link);
+      return `
+      <article class="article-card${isRead ? ' is-read' : ''}" data-source="${source}" data-index="${i}" tabindex="0" role="button">
         ${a.categories?.length ? `<div class="meta">${a.categories.slice(0, 2).map(escapeHtml).join(' · ')}</div>` : ''}
         <h3>${escapeHtml(a.title)}</h3>
         <div class="excerpt">${escapeHtml(stripHtml(a.description).slice(0, 220))}</div>
         <div class="footer-meta">${a.author ? escapeHtml(a.author) + ' · ' : ''}${escapeHtml(timeAgo(a.pubDate))}</div>
       </article>
-    `).join('');
+    `;
+    }).join('');
+    updateUnreadBadge(source);
   }
 
   function renderVideos(videos) {
@@ -227,6 +291,17 @@
   function openArticle(source, idx) {
     const a = state.data[source]?.articles?.[idx];
     if (!a) return;
+
+    // Marcar como leído (solo para feeds que tienen contador)
+    if (source === 'actualidad' || source === 'cnv') {
+      markAsRead(source, a.link);
+      updateUnreadBadge(source);
+      // Actualizar visualmente la card sin re-renderizar todo
+      const card = document.querySelector(
+        `.article-card[data-source="${source}"][data-index="${idx}"]`
+      );
+      if (card) card.classList.add('is-read');
+    }
 
     const dateStr = a.pubDate
       ? new Date(a.pubDate).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })

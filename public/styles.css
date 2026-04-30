@@ -251,6 +251,32 @@ a:hover { color: var(--gold); }
   background: var(--gold);
 }
 
+/* Contador de no leídos junto al título del tab */
+.tab-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: var(--gold);
+  border-radius: 999px;
+  vertical-align: 2px;
+  font-variation-settings: normal;
+  animation: countPop 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.tab:not(.active) .tab-count {
+  background: var(--gold-deep);
+  color: var(--cream);
+}
+@keyframes countPop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
 .tab-meta {
   margin-left: auto;
   display: inline-flex;
@@ -329,6 +355,15 @@ a:hover { color: var(--gold); }
 }
 .article-card:hover { background: var(--ink-2); }
 .article-card:hover::before { width: 100%; }
+
+/* Artículos leídos: un poco atenuados, pero siguen siendo legibles */
+.article-card.is-read h3 {
+  color: var(--cream-mute);
+  font-weight: 400;
+}
+.article-card.is-read .excerpt {
+  color: var(--cream-fade);
+}
 
 .article-card .meta {
   font-family: var(--mono);
